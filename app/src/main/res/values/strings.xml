@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">relaxtra</string>
+
+    <string-array name="timer_options">
+        <item>Sin temporizador</item>
+        <item>15 minutos</item>
+        <item>30 minutos</item>
+        <item>45 minutos</item>
+        <item>1 hora</item>
+    </string-array>
+</resources>
