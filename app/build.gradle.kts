@@ -40,6 +40,8 @@ android {
 }
 
 dependencies {
+    implementation(libs.glide)
+    annotationProcessor(libs.compiler)
     implementation (libs.androidx.constraintlayout)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

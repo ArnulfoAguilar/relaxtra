@@ -1,4 +1,4 @@
-package com.example.relaxtra
+package com.example.relaxtra // Asegúrate de que este sea tu package name
 
 import android.content.ComponentName
 import android.content.Context
@@ -9,15 +9,20 @@ import android.os.IBinder
 import android.util.Log
 import android.view.View
 import android.widget.AdapterView
+import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.CheckBox
+import android.widget.ImageView
 import android.widget.SeekBar
 import android.widget.Spinner
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import com.bumptech.glide.Glide
 
 class MainActivity : AppCompatActivity() {
+
     private val TAG = "MainActivity"
+
     private lateinit var whiteNoiseCheckBox: CheckBox
     private lateinit var whiteNoiseSeekBar: SeekBar
     private lateinit var rainSoundCheckBox: CheckBox
@@ -25,6 +30,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var playPauseButton: Button
     private lateinit var stopButton: Button
     private lateinit var timerSpinner: Spinner
+    private lateinit var soundSelectionSpinner: Spinner
+    private lateinit var backgroundGifImageView: ImageView
 
     private var soundService: SoundService? = null
     private var isBound = false
@@ -37,6 +44,11 @@ class MainActivity : AppCompatActivity() {
             soundService = binder.getService()
             isBound = true
             updateUIBasedOnServiceState()
+            // Cuando el servicio se conecta, si ya hay una duración seleccionada en el Spinner
+            // se la enviamos para que la tenga lista para cuando se presione Play
+            val selectedDuration = getDurationFromSpinnerPosition(timerSpinner.selectedItemPosition)
+            soundService?.setInitialTimerDuration(selectedDuration)
+            Log.d(TAG, "onServiceConnected: Sent initial timer duration: $selectedDuration ms.")
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
@@ -48,7 +60,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        Log.d(TAG, "onCreate: Activity creada")
+        Log.d(TAG, "onCreate: Actividad creada.")
         setContentView(R.layout.activity_main)
 
         // Inicializar vistas
@@ -59,6 +71,11 @@ class MainActivity : AppCompatActivity() {
         playPauseButton = findViewById(R.id.playPauseButton)
         stopButton = findViewById(R.id.stopButton)
         timerSpinner = findViewById(R.id.timerSpinner)
+        backgroundGifImageView = findViewById(R.id.backgroundGifImageView)
+
+        soundSelectionSpinner = findViewById(R.id.soundSelectionSpinner)
+        setupSoundSelectionSpinner()
+
         Log.d(TAG, "onCreate: Vistas inicializadas.")
 
         // Listener para CheckBox de Ruido Blanco
@@ -66,12 +83,12 @@ class MainActivity : AppCompatActivity() {
             Log.d(TAG, "whiteNoiseCheckBox checked: $isChecked")
             if (isBound) {
                 if (isChecked) {
-                    soundService?.addSound(SoundService.SOUND_WHITE_NOISE, R.raw.birs_chirping) //ToDo R.raw.birs_chirping
+                    soundService?.addSound(SoundService.SOUND_WHITE_NOISE, R.raw.birs_chirping)
                     soundService?.setVolume(SoundService.SOUND_WHITE_NOISE, whiteNoiseSeekBar.progress)
                 } else {
                     soundService?.removeSound(SoundService.SOUND_WHITE_NOISE)
                 }
-            }else{
+            } else {
                 Log.w(TAG, "whiteNoiseCheckBox changed but service not bound.")
             }
         }
@@ -79,100 +96,173 @@ class MainActivity : AppCompatActivity() {
         // Listener para SeekBar de Ruido Blanco
         whiteNoiseSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                if (isBound && whiteNoiseCheckBox.isChecked) {
+                if (fromUser && isBound && whiteNoiseCheckBox.isChecked) {
                     Log.d(TAG, "whiteNoiseSeekBar progress: $progress")
                     soundService?.setVolume(SoundService.SOUND_WHITE_NOISE, progress)
                 }
             }
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {Log.d(TAG, "whiteNoiseSeekBar tracking started.")}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {Log.d(TAG, "whiteNoiseSeekBar tracking stopped.")}
+            override fun onStartTrackingTouch(seekBar: SeekBar?) { Log.d(TAG, "whiteNoiseSeekBar tracking started.") }
+            override fun onStopTrackingTouch(seekBar: SeekBar?) { Log.d(TAG, "whiteNoiseSeekBar tracking stopped.") }
         })
 
         // Listener para CheckBox de Lluvia
         rainSoundCheckBox.setOnCheckedChangeListener { _, isChecked ->
+            Log.d(TAG, "rainSoundCheckBox checked: $isChecked")
             if (isBound) {
                 if (isChecked) {
-                    Log.d(TAG, "rainSoundCheckBox checked: $isChecked")
-                    soundService?.addSound(SoundService.SOUND_RAIN, R.raw.rain_sound)//ToDo R.raw.rain_sound
+                    soundService?.addSound(SoundService.SOUND_RAIN, R.raw.rain_sound)
                     soundService?.setVolume(SoundService.SOUND_RAIN, rainSoundSeekBar.progress)
                 } else {
                     soundService?.removeSound(SoundService.SOUND_RAIN)
                 }
+            } else {
+                Log.w(TAG, "rainSoundCheckBox changed but service not bound.")
             }
         }
 
         // Listener para SeekBar de Lluvia
         rainSoundSeekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                if (isBound && rainSoundCheckBox.isChecked) {
+                if (fromUser && isBound && rainSoundCheckBox.isChecked) {
                     Log.d(TAG, "rainSoundSeekBar progress: $progress")
                     soundService?.setVolume(SoundService.SOUND_RAIN, progress)
                 }
             }
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+            override fun onStartTrackingTouch(seekBar: SeekBar?) { Log.d(TAG, "rainSoundSeekBar tracking started.") }
+            override fun onStopTrackingTouch(seekBar: SeekBar?) { Log.d(TAG, "rainSoundSeekBar tracking stopped.") }
         })
 
         // Botón Play/Pause
         playPauseButton.setOnClickListener {
+            Log.d(TAG, "Play/Pause button clicked. isBound: $isBound")
             if (isBound) {
                 if (soundService?.isPlaying() == true) {
                     soundService?.pauseSounds()
                     playPauseButton.text = "Reproducir"
+                    Log.d(TAG, "Sounds paused.")
                 } else {
-                    soundService?.playSounds()
+                    soundService?.playSounds() // Inicia el temporizador si está configurado
                     playPauseButton.text = "Pausa"
+                    Log.d(TAG, "Sounds started.")
                 }
             } else {
                 Toast.makeText(this, "Servicio no conectado, intenta de nuevo.", Toast.LENGTH_SHORT).show()
+                Log.e(TAG, "Play/Pause clicked but service not bound.")
             }
         }
 
         // Botón Detener
         stopButton.setOnClickListener {
+            Log.d(TAG, "Stop button clicked. isBound: $isBound")
             if (isBound) {
-                soundService?.stopSounds()
+                soundService?.stopSounds() // Detiene el temporizador también
                 playPauseButton.text = "Reproducir"
                 // Resetear checkboxes y seekbars
                 whiteNoiseCheckBox.isChecked = false
                 rainSoundCheckBox.isChecked = false
                 whiteNoiseSeekBar.progress = 50
                 rainSoundSeekBar.progress = 50
+                // Resetear el spinner del temporizador a "Sin temporizador" si lo deseas
+                timerSpinner.setSelection(0)
+                Log.d(TAG, "Sounds stopped and UI reset.")
+            } else {
+                Log.e(TAG, "Stop clicked but service not bound.")
             }
         }
 
-        // Spinner del Temporizador
+        // Spinner del Temporizador - Ahora solo configura la duración inicial
         timerSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                val durationMillis = when (position) {
-                    0 -> 0L // Sin temporizador
-                    1 -> 15 * 60 * 1000L // 15 minutos
-                    2 -> 30 * 60 * 1000L // 30 minutos
-                    3 -> 45 * 60 * 1000L // 45 minutos
-                    4 -> 60 * 60 * 1000L // 1 hora
-                    else -> 0L
-                }
+                val durationMillis = getDurationFromSpinnerPosition(position)
+                Log.d(TAG, "Timer selected: ${parent?.getItemAtPosition(position)} (duration: $durationMillis ms)")
                 if (isBound) {
-                    soundService?.setTimer(durationMillis)
+                    // Solo enviamos la duración total al servicio, no lo iniciamos aquí.
+                    // El inicio/pausa/reanudar se hará en playSounds() y pauseSounds()
+                    soundService?.setInitialTimerDuration(durationMillis)
+                    Log.d(TAG, "Sent timer duration to service: $durationMillis ms.")
+                } else {
+                    Log.w(TAG, "Timer selected but service not bound.")
+                    Toast.makeText(this@MainActivity, "Servicio de sonido no conectado. El temporizador no se configuró.", Toast.LENGTH_SHORT).show()
                 }
             }
-            override fun onNothingSelected(parent: AdapterView<*>?) {}
+            override fun onNothingSelected(parent: AdapterView<*>?) { Log.d(TAG, "Timer nothing selected.") }
+        }
+    } // Fin de onCreate
+
+    private fun getDurationFromSpinnerPosition(position: Int): Long {
+        return when (position) {
+            0 -> 0L // Sin temporizador
+            1 -> 15 * 60 * 1000L // 15 minutos
+            2 -> 30 * 60 * 1000L // 30 minutos
+            3 -> 45 * 60 * 1000L // 45 minutos
+            4 -> 60 * 60 * 1000L // 1 hora
+            else -> 0L
+        }
+    }
+
+    private fun setupSoundSelectionSpinner() {
+        val soundOptions = arrayOf("Seleccionar Fondo", "Lluvia", "Bosque", "Olas", "Carretera")
+        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, soundOptions)
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        soundSelectionSpinner.adapter = adapter
+
+        soundSelectionSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                when (position) {
+                    0 -> { // "Seleccionar Fondo" - podrías poner un fondo por defecto o vacío
+                        Glide.with(this@MainActivity)
+                            .load(android.R.color.black)
+                            .into(backgroundGifImageView)
+                        Log.d(TAG, "Background set to default (black).")
+                    }
+                    1 -> { // Lluvia
+                        Glide.with(this@MainActivity)
+                            .asGif()
+                            .load(R.drawable.rain_background)
+                            .into(backgroundGifImageView)
+                        Log.d(TAG, "Background set to rain_background.gif")
+                    }
+                    2 -> { // Bosque (pájaros)
+                        Glide.with(this@MainActivity)
+                            .asGif()
+                            .load(R.drawable.birds_background)
+                            .into(backgroundGifImageView)
+                        Log.d(TAG, "Background set to birds_background.gif")
+                    }
+                    3 -> { // Olas
+                        Glide.with(this@MainActivity)
+                            .asGif()
+                            .load(R.drawable.waves_background)
+                            .into(backgroundGifImageView)
+                        Log.d(TAG, "Background set to waves_background.gif")
+                    }
+                    4 -> { // Carretera
+                        Glide.with(this@MainActivity)
+                            .asGif()
+                            .load(R.drawable.road_background)
+                            .into(backgroundGifImageView)
+                        Log.d(TAG, "Background set to road_background.gif")
+                    }
+                }
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) {
+                Log.d(TAG, "No background sound selected.")
+            }
         }
     }
 
     override fun onStart() {
         super.onStart()
         Log.d(TAG, "onStart: Iniciando servicio y vinculándolo.")
-        // Iniciar y vincular el servicio cuando la actividad se inicia
         val intent = Intent(this, SoundService::class.java)
-        startService(intent) // Inicia el servicio
-        bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE) // Vincula al servicio
+        startService(intent)
+        bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
     }
 
     override fun onStop() {
         super.onStop()
         Log.d(TAG, "onStop: Desvinculando servicio.")
-        // Desvincular el servicio cuando la actividad se detiene
         if (isBound) {
             unbindService(serviceConnection)
             isBound = false
@@ -187,11 +277,8 @@ class MainActivity : AppCompatActivity() {
     private fun updateUIBasedOnServiceState() {
         soundService?.let { service ->
             Log.d(TAG, "updateUIBasedOnServiceState: Actualizando UI.")
-            // Actualiza el estado de los checkboxes y seekbars basado en lo que el servicio está reproduciendo
             whiteNoiseCheckBox.isChecked = service.isSoundActive(SoundService.SOUND_WHITE_NOISE)
             rainSoundCheckBox.isChecked = service.isSoundActive(SoundService.SOUND_RAIN)
-
-            // Asumiendo que SoundService.getVolume ahora devuelve el valor correcto
             whiteNoiseSeekBar.progress = service.getVolume(SoundService.SOUND_WHITE_NOISE)
             rainSoundSeekBar.progress = service.getVolume(SoundService.SOUND_RAIN)
 
@@ -200,9 +287,8 @@ class MainActivity : AppCompatActivity() {
             } else {
                 playPauseButton.text = "Reproducir"
             }
+        } ?: run {
+            Log.w(TAG, "updateUIBasedOnServiceState: Service is null, cannot update UI.")
         }
-            ?: run {
-                Log.w(TAG, "updateUIBasedOnServiceState: Service is null, cannot update UI.")
-            }
     }
 }
