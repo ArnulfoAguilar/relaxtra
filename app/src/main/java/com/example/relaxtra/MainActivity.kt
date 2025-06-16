@@ -24,7 +24,6 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var whiteNoiseSeekBar: SeekBar
     private lateinit var rainSoundSeekBar: SeekBar
-    private lateinit var playPauseButton: Button
     private lateinit var stopButton: Button
     private lateinit var timerSpinner: Spinner
     private lateinit var soundSelectionSpinner: Spinner
@@ -61,7 +60,6 @@ class MainActivity : AppCompatActivity() {
         // Inicializar vistas
         whiteNoiseSeekBar = findViewById(R.id.whiteNoiseSeekBar)
         rainSoundSeekBar = findViewById(R.id.rainSoundSeekBar)
-        playPauseButton = findViewById(R.id.playPauseButton)
         stopButton = findViewById(R.id.stopButton)
         timerSpinner = findViewById(R.id.timerSpinner)
         backgroundGifImageView = findViewById(R.id.backgroundGifImageView)
@@ -80,20 +78,9 @@ class MainActivity : AppCompatActivity() {
                         soundService?.addSound(SoundService.SOUND_WHITE_NOISE, R.raw.birs_chirping)
                         soundService?.setVolume(SoundService.SOUND_WHITE_NOISE, progress)
                         soundService?.playSounds()
-                        // ¡CORRECCIÓN CLAVE AQUÍ!
-                        // Si el servicio no está reproduciendo globalmente, iniciar la reproducción
-                        if (soundService?.isPlaying() == false) {
-
-                            playPauseButton.text = "Pausa" // Actualizar el texto del botón
-                            Log.d(TAG, "whiteNoiseSeekBar: Triggered global play because service was paused.")
-                        }
                     } else { // progress == 0
                         Log.d(TAG, "whiteNoiseSeekBar: Progress is 0. Removing White Noise.")
                         soundService?.removeSound(SoundService.SOUND_WHITE_NOISE)
-                        // Si no quedan sonidos activos, el servicio se detendrá, y el botón se actualizará
-                        if (soundService?.isPlaying() == false) { // Si al remover, ya no queda nada sonando
-                            playPauseButton.text = "Reproducir"
-                        }
                     }
                 }
             }
@@ -110,18 +97,9 @@ class MainActivity : AppCompatActivity() {
                         soundService?.addSound(SoundService.SOUND_RAIN, R.raw.rain_sound)
                         soundService?.setVolume(SoundService.SOUND_RAIN, progress)
                         soundService?.playSounds()
-                        // ¡CORRECCIÓN CLAVE AQUÍ!9
-                        if (soundService?.isPlaying() == false) {
-
-                            playPauseButton.text = "Pausa"
-                            Log.d(TAG, "rainSoundSeekBar: Triggered global play because service was paused.")
-                        }
                     } else { // progress == 0
                         Log.d(TAG, "rainSoundSeekBar: Progress is 0. Removing Rain Sound.")
                         soundService?.removeSound(SoundService.SOUND_RAIN)
-                        if (soundService?.isPlaying() == false) {
-                            playPauseButton.text = "Reproducir"
-                        }
                     }
                 }
             }
@@ -129,39 +107,11 @@ class MainActivity : AppCompatActivity() {
             override fun onStopTrackingTouch(seekBar: SeekBar?) { Log.d(TAG, "rainSoundSeekBar tracking stopped.") }
         })
 
-        // Botón Play/Pause
-        playPauseButton.setOnClickListener {
-            Log.d(TAG, "Play/Pause button clicked. isBound: $isBound")
-            if (isBound) {
-                if (soundService?.isPlaying() == true) {
-                    soundService?.pauseSounds()
-                    playPauseButton.text = "Reproducir"
-                    Log.d(TAG, "Sounds paused.")
-                } else {
-                    val hasActiveSounds = whiteNoiseSeekBar.progress > 0 || rainSoundSeekBar.progress > 0
-                    val hasTimer = getDurationFromSpinnerPosition(timerSpinner.selectedItemPosition) > 0
-
-                    if (hasActiveSounds || hasTimer) {
-                        soundService?.playSounds()
-                        playPauseButton.text = "Pausa"
-                        Log.d(TAG, "Sounds/Timer started.")
-                    } else {
-                        Toast.makeText(this, "Ajusta el volumen de un sonido o selecciona un temporizador para iniciar.", Toast.LENGTH_SHORT).show()
-                        Log.d(TAG, "Play clicked but no sounds active (seekbars are at 0) and no timer set.")
-                    }
-                }
-            } else {
-                Toast.makeText(this, "Servicio no conectado, intenta de nuevo.", Toast.LENGTH_SHORT).show()
-                Log.e(TAG, "Play/Pause clicked but service not bound.")
-            }
-        }
-
         // Botón Detener
         stopButton.setOnClickListener {
             Log.d(TAG, "Stop button clicked. isBound: $isBound")
             if (isBound) {
                 soundService?.stopSounds()
-                playPauseButton.text = "Reproducir"
                 whiteNoiseSeekBar.progress = 0
                 rainSoundSeekBar.progress = 0
                 timerSpinner.setSelection(0)
@@ -280,16 +230,10 @@ class MainActivity : AppCompatActivity() {
             whiteNoiseSeekBar.progress = service.getVolume(SoundService.SOUND_WHITE_NOISE)
             rainSoundSeekBar.progress = service.getVolume(SoundService.SOUND_RAIN)
 
-            if (service.isPlaying()) {
-                playPauseButton.text = "Pausa"
-            } else {
-                playPauseButton.text = "Reproducir"
-            }
         } ?: run {
             Log.w(TAG, "updateUIBasedOnServiceState: Service is null, cannot update UI.")
             whiteNoiseSeekBar.progress = 0
             rainSoundSeekBar.progress = 0
-            playPauseButton.text = "Reproducir"
         }
     }
 }
