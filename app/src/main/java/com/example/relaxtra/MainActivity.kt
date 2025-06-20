@@ -14,6 +14,7 @@ import android.widget.Button
 import android.widget.ImageView
 import android.widget.SeekBar
 import android.widget.Spinner
+import android.widget.TextView // Importa TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.bumptech.glide.Glide
@@ -28,6 +29,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var timerSpinner: Spinner
     private lateinit var soundSelectionSpinner: Spinner
     private lateinit var backgroundGifImageView: ImageView
+    private lateinit var mainTitleTextView: TextView // Nuevo
+    private lateinit var subtitleTextView: TextView // Nuevo
 
     private var soundService: SoundService? = null
     private var isBound = false
@@ -63,6 +66,8 @@ class MainActivity : AppCompatActivity() {
         stopButton = findViewById(R.id.stopButton)
         timerSpinner = findViewById(R.id.timerSpinner)
         backgroundGifImageView = findViewById(R.id.backgroundGifImageView)
+        mainTitleTextView = findViewById(R.id.mainTitleTextView) // Nuevo
+        subtitleTextView = findViewById(R.id.subtitleTextView)   // Nuevo
 
         soundSelectionSpinner = findViewById(R.id.soundSelectionSpinner)
         setupSoundSelectionSpinner()
@@ -77,7 +82,10 @@ class MainActivity : AppCompatActivity() {
                         Log.d(TAG, "whiteNoiseSeekBar: Progress > 0. Adding/Setting volume for White Noise to $progress")
                         soundService?.addSound(SoundService.SOUND_WHITE_NOISE, R.raw.birs_chirping)
                         soundService?.setVolume(SoundService.SOUND_WHITE_NOISE, progress)
-                        soundService?.playSounds()
+
+                            soundService?.playSounds()
+                            Log.d(TAG, "whiteNoiseSeekBar: Triggered global play because service was paused.")
+
                     } else { // progress == 0
                         Log.d(TAG, "whiteNoiseSeekBar: Progress is 0. Removing White Noise.")
                         soundService?.removeSound(SoundService.SOUND_WHITE_NOISE)
@@ -96,7 +104,10 @@ class MainActivity : AppCompatActivity() {
                         Log.d(TAG, "rainSoundSeekBar: Progress > 0. Adding/Setting volume for Rain Sound to $progress")
                         soundService?.addSound(SoundService.SOUND_RAIN, R.raw.rain_sound)
                         soundService?.setVolume(SoundService.SOUND_RAIN, progress)
-                        soundService?.playSounds()
+
+                            soundService?.playSounds()
+                            Log.d(TAG, "rainSoundSeekBar: Triggered global play because service was paused.")
+
                     } else { // progress == 0
                         Log.d(TAG, "rainSoundSeekBar: Progress is 0. Removing Rain Sound.")
                         soundService?.removeSound(SoundService.SOUND_RAIN)
@@ -129,6 +140,13 @@ class MainActivity : AppCompatActivity() {
                 if (isBound) {
                     soundService?.setInitialTimerDuration(durationMillis)
                     Log.d(TAG, "Sent timer duration to service: $durationMillis ms.")
+                    if (durationMillis > 0 && soundService?.isPlaying() == false) {
+                        val hasActiveSounds = whiteNoiseSeekBar.progress > 0 || rainSoundSeekBar.progress > 0
+                        if (hasActiveSounds || durationMillis > 0) {
+                            soundService?.playSounds()
+                            Log.d(TAG, "Timer selected, initiating playSounds().")
+                        }
+                    }
                 } else {
                     Log.w(TAG, "Timer selected but service not bound.")
                     Toast.makeText(this@MainActivity, "Servicio de sonido no conectado. El temporizador no se configuró.", Toast.LENGTH_SHORT).show()
@@ -152,17 +170,24 @@ class MainActivity : AppCompatActivity() {
     private fun setupSoundSelectionSpinner() {
         val soundOptions = arrayOf("Seleccionar Fondo", "Lluvia", "Bosque", "Olas", "Carretera")
         val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, soundOptions)
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) // Para el estilo de los items del dropdown
         soundSelectionSpinner.adapter = adapter
 
+        // Opcional: Personalizar la vista del item seleccionado del spinner para que se vea bien sobre el fondo translúcido
+        soundSelectionSpinner.setSelection(0, false) // Evita que se dispare al inicio
         soundSelectionSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                // Si la vista es un TextView, personaliza su color
+                (parent?.getChildAt(0) as? TextView)?.setTextColor(resources.getColor(android.R.color.white))
+
                 when (position) {
                     0 -> {
                         Glide.with(this@MainActivity)
                             .load(android.R.color.black)
                             .into(backgroundGifImageView)
                         Log.d(TAG, "Background set to default (black).")
+                        mainTitleTextView.text = "Sonidos Relajantes"
+                        subtitleTextView.text = "Encuentra tu paz interior"
                     }
                     1 -> {
                         Glide.with(this@MainActivity)
@@ -170,6 +195,8 @@ class MainActivity : AppCompatActivity() {
                             .load(R.drawable.rain_background)
                             .into(backgroundGifImageView)
                         Log.d(TAG, "Background set to rain_background.gif")
+                        mainTitleTextView.text = "Lluvia Suave"
+                        subtitleTextView.text = "Cae la noche, la lluvia calma."
                     }
                     2 -> {
                         Glide.with(this@MainActivity)
@@ -177,6 +204,8 @@ class MainActivity : AppCompatActivity() {
                             .load(R.drawable.birds_background)
                             .into(backgroundGifImageView)
                         Log.d(TAG, "Background set to birds_background.gif")
+                        mainTitleTextView.text = "Canto del Bosque"
+                        subtitleTextView.text = "Melodías de la naturaleza."
                     }
                     3 -> {
                         Glide.with(this@MainActivity)
@@ -184,6 +213,8 @@ class MainActivity : AppCompatActivity() {
                             .load(R.drawable.waves_background)
                             .into(backgroundGifImageView)
                         Log.d(TAG, "Background set to waves_background.gif")
+                        mainTitleTextView.text = "Olas del Océano"
+                        subtitleTextView.text = "La calma de la marea."
                     }
                     4 -> {
                         Glide.with(this@MainActivity)
@@ -191,6 +222,8 @@ class MainActivity : AppCompatActivity() {
                             .load(R.drawable.road_background)
                             .into(backgroundGifImageView)
                         Log.d(TAG, "Background set to road_background.gif")
+                        mainTitleTextView.text = "Viaje Relajante"
+                        subtitleTextView.text = "El ritmo del camino."
                     }
                 }
             }
@@ -230,6 +263,7 @@ class MainActivity : AppCompatActivity() {
             whiteNoiseSeekBar.progress = service.getVolume(SoundService.SOUND_WHITE_NOISE)
             rainSoundSeekBar.progress = service.getVolume(SoundService.SOUND_RAIN)
 
+            // No hay botón Play/Pause para actualizar
         } ?: run {
             Log.w(TAG, "updateUIBasedOnServiceState: Service is null, cannot update UI.")
             whiteNoiseSeekBar.progress = 0
