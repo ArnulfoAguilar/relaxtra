@@ -131,8 +131,7 @@
                 android:layout_marginBottom="16dp"
                 android:spinnerMode="dropdown"/>
 
-            <Button
-                android:id="@+id/stopButton"
+            <com.google.android.material.button.MaterialButton  android:id="@+id/stopButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Detener"
@@ -142,8 +141,9 @@
                 android:paddingStart="24dp"
                 android:paddingEnd="24dp"
                 android:minHeight="48dp"
-                android:drawableLeft="@android:drawable/ic_delete"
-                android:drawablePadding="8dp"/>
+                app:cornerRadius="24dp"
+                android:drawableLeft="@null"
+                android:drawablePadding="0dp"/>
 
         </LinearLayout>
     </androidx.cardview.widget.CardView>

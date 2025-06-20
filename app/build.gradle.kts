@@ -40,6 +40,7 @@ android {
 }
 
 dependencies {
+    implementation(libs.material)
     implementation (libs.androidx.cardview)
     implementation(libs.glide)
     annotationProcessor(libs.compiler)
